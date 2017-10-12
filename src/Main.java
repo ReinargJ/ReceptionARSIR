@@ -1,6 +1,7 @@
 import com.sun.deploy.util.StringUtils;
 import javafx.application.Application;
 import javafx.event.EventHandler;
+import java.io.IOException;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -79,7 +80,11 @@ public class Main extends Application{
                 if(selectedPath != null && !StringUtils.trimWhitespace(ip.getText()).equals("")
                         && !StringUtils.trimWhitespace(port.getText()).equals("")
                         && !StringUtils.trimWhitespace(fileName.getText()).equals("")) {
-                    msg = Client.recevoirFichier(ip.getText(), port.getText(), selectedPath, fileName.getText());
+                    try {
+                        msg = Client.recevoirFichier(ip.getText(), port.getText(), selectedPath, fileName.getText());
+                    } catch (IOException ex) {
+                        msg = "Aucune réponse du serveur ...";
+                    }
                 }
                 result.setText(msg);
             }
