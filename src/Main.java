@@ -1,6 +1,8 @@
 import com.sun.deploy.util.StringUtils;
 import javafx.application.Application;
 import javafx.event.EventHandler;
+
+import java.io.File;
 import java.io.IOException;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -11,9 +13,8 @@ import javafx.scene.control.TextField;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
+import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
-
-import javax.swing.*;
 
 public class Main extends Application{
     private Scene scene;
@@ -58,18 +59,16 @@ public class Main extends Application{
         btnParcourir.setOnMouseClicked(new EventHandler<MouseEvent>() {
             @Override
             public void handle(MouseEvent event) {
-                JFileChooser chooser = new JFileChooser();
-                chooser.setCurrentDirectory(new java.io.File("../"));
-                chooser.setDialogTitle("Dossier de destination");
-                chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-                chooser.setAcceptAllFileFilterUsed(false);
-
-                if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
-                    selectedPath = chooser.getCurrentDirectory().getPath();
-                    folder.setText(selectedPath);
+                DirectoryChooser directoryChooser =
+                        new DirectoryChooser();
+                File selectedDirectory =
+                        directoryChooser.showDialog(stage);
+                if (selectedDirectory != null) {
+                    selectedPath = selectedDirectory.getAbsolutePath();
                 } else {
-                    folder.setText("");
+                    selectedPath = "";
                 }
+                folder.setText(selectedPath);
             }
         });
         Button btnGet = new Button("Télécharger");
