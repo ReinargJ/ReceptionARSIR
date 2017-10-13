@@ -11,7 +11,7 @@ import java.util.Arrays;
  */
 public class Client {
     public static String recevoirFichier(String ip, String port, String destination, String fileName) throws SocketException, IOException {
-        String message="";
+        String message="Fichier récupéré avec succès";
 
         DatagramSocket basicSocket = new DatagramSocket();
         basicSocket.setSoTimeout(10000); //on indique 10s d'attente maximum du socket
@@ -38,7 +38,9 @@ public class Client {
                 intPort = rcDp.getPort();
                 int packetNb = 0;
                 byte[] buffer = responsedata.getData();
-                int sizePacket = rcDp.getLength() - 4;
+                int sizePacket = rcDp.getLength();
+
+                System.out.println(sizePacket);
 
                 //On ouvre le fichier
                 FileOutputStream out = new FileOutputStream(destination+"\\"+fileName);
@@ -48,20 +50,20 @@ public class Client {
 
                 while (sizePacket >= 512) {
                     int tentatives = 0;
-                    boolean timeout = true;
+                    boolean timeout = false;
 
                     do {
                         try {
                             basicSocket.send(CreateDTGPacket(createAcknowledge(packetNb), 4, ip, intPort));
 
-                            rcDp = CreateDTGPacket(new byte[516], 516, ip, intPort);
+                            rcDp = CreateDTGPacket(new byte[516], 516, ip, oldPort);
                             basicSocket.receive(rcDp);
 
                         } catch (SocketTimeoutException e) {
                             timeout = true;
                             tentatives++;
 
-                            if (tentatives >= 1000) {
+                            if (tentatives >= 5) {
                                 throw e;
                             }
                         } catch (Exception e) {
@@ -76,10 +78,11 @@ public class Client {
                     DataPacket dtpk = DataPacket.getDataPacket(rcDp);
 
                     if (dtpk.getPacketNr() == packetNb + 1) {
+
                         packetNb++;
 
                         buffer = dtpk.getData();
-                        sizePacket = rcDp.getLength() - 4;
+                        sizePacket = rcDp.getLength();
                         out.write(buffer);
                     }
 
