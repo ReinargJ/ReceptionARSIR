@@ -16,6 +16,8 @@ import javafx.scene.layout.GridPane;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
 
+import javax.xml.soap.Text;
+
 public class Main extends Application{
     private Scene scene;
     private BorderPane border;

@@ -1,6 +1,3 @@
-import Helper.UnsignedHelper;
-import model.DataPacket;
-
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.*;
@@ -11,7 +8,7 @@ import java.util.Arrays;
  */
 public class Client {
     public static String recevoirFichier(String ip, String port, String destination, String fileName) throws SocketException, IOException {
-        String message="Fichier récupéré avec succès";
+        String message = "Fichier récupéré avec succès";
 
         DatagramSocket basicSocket = new DatagramSocket();
         basicSocket.setSoTimeout(10000); //on indique 10s d'attente maximum du socket
@@ -22,42 +19,48 @@ public class Client {
         int length = RRQRequest.length;
         int intPort = Integer.parseInt(port);
 
-                basicSocket.send(CreateDTGPacket(RRQRequest, length, ip, intPort));
+        basicSocket.send(CreateDTGPacket(RRQRequest, length, ip, intPort));
 
         // création d'un DTGPacket vide pour récéptionner
-        byte[] emptyByte = new byte[512];
-        DatagramPacket rcDp = CreateDTGPacket(emptyByte, emptyByte.length, ip, intPort );
+        byte[] emptyByte = new byte[516];
+        DatagramPacket rcDp = CreateDTGPacket(emptyByte, emptyByte.length, ip, intPort);
 
         basicSocket.receive(rcDp);
 
         try {
-            DataPacket responsedata = DataPacket.getDataPacket(rcDp);
 
-            if (responsedata.getPacketNr() == 1) {
+            byte[] packetNb = getPackNb(rcDp);
+            byte[] ack1 = new byte[]{(byte) 0, (byte) 1};
+            byte[] rawData = rcDp.getData();
+
+            if(rawData[1] == (byte)5){
+                message = getErrorPacket(rcDp);
+                return message;
+            }
+
+            if (Arrays.equals(ack1, packetNb)) {
+
                 int oldPort = intPort;
                 intPort = rcDp.getPort();
-                int packetNb = 0;
-                byte[] buffer = responsedata.getData();
+                byte[] buffer = getData(rawData);
                 int sizePacket = rcDp.getLength();
 
-                System.out.println(sizePacket);
-
                 //On ouvre le fichier
-                FileOutputStream out = new FileOutputStream(destination+"\\"+fileName);
+                FileOutputStream out = new FileOutputStream(destination + "\\" + fileName);
                 out.write(buffer);
 
-                packetNb++;
 
-                while (sizePacket >= 512) {
+                while (sizePacket >= 516) {
                     int tentatives = 0;
                     boolean timeout = false;
 
                     do {
                         try {
-                            basicSocket.send(CreateDTGPacket(createAcknowledge(packetNb), 4, ip, intPort));
+                            basicSocket.send(CreateDTGPacket(createAcknowledge(getPackNb(rcDp)), 4, ip, intPort));
 
                             rcDp = CreateDTGPacket(new byte[516], 516, ip, oldPort);
                             basicSocket.receive(rcDp);
+
 
                         } catch (SocketTimeoutException e) {
                             timeout = true;
@@ -75,28 +78,27 @@ public class Client {
                         }
                     } while (timeout == true);
 
-                    DataPacket dtpk = DataPacket.getDataPacket(rcDp);
+                    rawData = rcDp.getData();
 
-                    if (dtpk.getPacketNr() == packetNb + 1) {
-
-                        packetNb++;
-
-                        buffer = dtpk.getData();
-                        sizePacket = rcDp.getLength();
-                        out.write(buffer);
+                    if(rawData[1] == (byte)5){
+                        message = getErrorPacket(rcDp);
+                        return message;
                     }
 
+                    buffer = getData(rawData);
+                    sizePacket = rcDp.getLength();
+                    out.write(buffer);
                 }
 
-                out.write(buffer);
-                basicSocket.send(CreateDTGPacket(createAcknowledge(packetNb), 4, ip, intPort));
+                basicSocket.send(CreateDTGPacket(createAcknowledge(getPackNb(rcDp)), 4, ip, intPort));
 
                 out.close();
             }
         } catch (Exception e) {
-            System.out.println(e.getMessage());
+            message = e.getMessage();
+        }finally {
+            return message;
         }
-        return message;
     }
 
 
@@ -107,21 +109,21 @@ public class Client {
     }
 
     //
-    public static byte[] createAcknowledge(int packetNb) {
+    public static byte[] createAcknowledge(byte[] packetNb) {
         byte zeroByte = 0;
+
         int wrqByteLength = 4;
         byte[] wrqByteArray = new byte[wrqByteLength];
-        byte[] numpacket  = UnsignedHelper.intTo2UnsignedBytes(packetNb);
+
         int position = 0;
         wrqByteArray[position] = zeroByte;
         position++;
-        wrqByteArray[position] = 4; //Aknowledge = type 4
+        wrqByteArray[position] = (byte)4; //Aknowledge = type 4
         position++;
-        wrqByteArray[position] = numpacket[0];
+        wrqByteArray[position] = packetNb[0];
         position++;
-        wrqByteArray[position] = numpacket[1];
+        wrqByteArray[position] = packetNb[1];
 
-        System.out.println(Arrays.toString(wrqByteArray));
         return wrqByteArray;
     }
 
@@ -157,4 +159,34 @@ public class Client {
     }
 
 
+    public static byte[] getPackNb(DatagramPacket dtp){
+        byte[] data = dtp.getData();
+
+        return new byte[]{data[2], data[3]};
+    }
+
+    public static byte[] getData(byte[] data){
+
+        byte[] datarcv = new byte[data.length-4];
+        for(int i = 0 ; i<data.length-4;i++){ datarcv[i] = data[i+4];}
+
+        return datarcv;
+    }
+
+    public static final String[] errorList = {
+            "Non défini, voir le message d'erreur",
+            "Fichier non trouvé",
+            "Disque plein ou dépassement de l'espace alloué" ,
+            "Opération TFTP illégale" ,
+            "Transfert ID inconnu",
+            "Le fichier existe déjà",
+            "Utilisateur inconnu" };
+
+    public static String getErrorPacket(DatagramPacket recvDatagramPacket)
+    {
+        byte[] data = recvDatagramPacket.getData();
+        byte errorCode = data[3];
+
+        return errorList[(int)errorCode];
+    }
 }
